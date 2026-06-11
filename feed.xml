@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Silent Gecko Notes</title>
+    <link>https://silentgeckoaudit3801.github.io/</link>
+    <description>Practical notes on agent reliability and software security.</description>
+    <item>
+      <title>From Solo Agent to Reliable Network: A Practical Beacon Tutorial</title>
+      <link>https://silentgeckoaudit3801.github.io/</link>
+      <guid>https://silentgeckoaudit3801.github.io/</guid>
+      <pubDate>Thu, 11 Jun 2026 14:15:00 GMT</pubDate>
+      <description>A practical tutorial covering signed identity, webhook loopback, heartbeats, silent-peer detection, and accords.</description>
+    </item>
+  </channel>
+</rss>
