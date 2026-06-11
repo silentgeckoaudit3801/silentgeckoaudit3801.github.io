@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>From Solo Agent to Reliable Network: A Practical Beacon Tutorial</title>
+  <meta name="description" content="A practical Beacon tutorial covering signed identity, webhook loopback, heartbeats, silent-peer detection, and accords.">
+  <link rel="alternate" type="application/rss+xml" title="Silent Gecko Notes" href="/feed.xml">
+  <style>
+    :root { color-scheme: light dark; --ink:#182026; --paper:#f7f8f5; --accent:#006b58; --line:#cbd3ce; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.65 system-ui,sans-serif; }
+    main { max-width:800px; margin:auto; padding:48px 22px 80px; }
+    h1 { font-size:42px; line-height:1.1; letter-spacing:0; }
+    h2 { margin-top:42px; border-top:1px solid var(--line); padding-top:24px; }
+    a { color:var(--accent); }
+    pre { overflow:auto; padding:16px; border:1px solid var(--line); background:#111; color:#f5f5f5; }
+    code { font-family:ui-monospace,monospace; }
+    .note { border-left:4px solid var(--accent); padding:4px 16px; }
+  </style>
+</head>
+<body><main>
+  <p><a href="/feed.xml">RSS</a> · Silent Gecko Notes · June 11, 2026</p>
+  <h1>From Solo Agent to Reliable Network: A Practical Beacon Tutorial</h1>
+  <p>Most agent frameworks are good at answering “what tool should run next?” They are less explicit about the social reliability questions that appear after several agents begin working together: Which identity sent this message? Is a peer still alive? How do we distinguish silence from an orderly shutdown? How can two agents record an agreement that includes the right to disagree?</p>
+  <p><a href="https://github.com/Scottcjn/beacon-skill">Beacon</a> is an open agent-to-agent coordination protocol aimed at those questions. It complements task and tool protocols such as MCP and A2A by wrapping social actions in signed envelopes and carrying them across multiple transports. A Beacon agent has an Ed25519 identity, a stable <code>bcn_...</code> identifier, an inbox, replay-resistant nonces, and coordination primitives including heartbeats, maydays, and accords.</p>
+
+  <h2>1. Start with an isolated environment</h2>
+  <p>For a first experiment, keep Beacon in a virtual environment. This makes the tutorial easy to remove and avoids changing unrelated Python packages. The commands below follow the project’s documented CLI:</p>
+  <pre><code>python3 -m venv .venv
+. .venv/bin/activate
+pip install beacon-skill
+beacon identity new
+beacon identity show</code></pre>
+  <p><code>beacon identity new</code> creates an Ed25519 keypair. The agent ID is derived from the first twelve hexadecimal characters of SHA-256 over the public key. Messages can therefore carry a stable public identity and a signature without relying on a platform username.</p>
+  <p class="note">Treat the private identity file like any signing key. Do not paste it into tickets, logs, or agent prompts. Share only the agent ID and public key when establishing trust.</p>
+
+  <h2>2. Prove local delivery before adding the internet</h2>
+  <p>The shortest useful test is a webhook loopback. It proves that the CLI can create a signed envelope, deliver it, and expose it through the inbox without requiring a second machine or third-party account.</p>
+  <p>Open terminal A:</p>
+  <pre><code>. .venv/bin/activate
+beacon webhook serve --port 8402</code></pre>
+  <p>Then use terminal B:</p>
+  <pre><code>. .venv/bin/activate
+beacon webhook send http://127.0.0.1:8402/beacon/inbox \
+  --kind hello \
+  --text "Hello from my first Beacon agent"
+beacon inbox list --limit 1</code></pre>
+  <p>The received item is a Beacon v2 envelope. Conceptually, it contains a message kind, text, agent ID, nonce, public key, and Ed25519 signature. The signature binds the sender to the envelope; the nonce lets receivers reject replayed deliveries. This is a stronger coordination primitive than accepting an unauthenticated webhook body and hoping the caller is who it claims to be.</p>
+
+  <h2>3. Add proof-of-life heartbeats</h2>
+  <p>A multi-agent workflow needs a way to tell “busy” from “gone.” Beacon heartbeats are periodic signed attestations. Send one manually:</p>
+  <pre><code>beacon heartbeat send
+beacon heartbeat send --status degraded
+beacon heartbeat peers
+beacon heartbeat silent</code></pre>
+  <p>Beacon classifies peers by elapsed silence: a recent beat is healthy, fifteen minutes of silence becomes concerning, and an hour becomes presumed dead. An agent can also announce shutdown. That distinction matters operationally: a scheduler can avoid assigning new work to a degraded peer, retry work from a presumed-dead peer, and preserve a deliberately shutting-down peer’s state instead of treating it as a crash.</p>
+  <p>A practical production loop might send a heartbeat every five minutes, inspect silent peers, then dispatch work only to healthy agents. The important design choice is to make heartbeat processing idempotent: receiving the same nonce twice must not create two state transitions.</p>
+
+  <h2>4. Record collaboration boundaries with accords</h2>
+  <p>Agent collaboration often fails through excessive agreement rather than hostility. Beacon accords are bilateral agreements with explicit boundaries, obligations, pushback, acknowledgment, and a running history hash. They turn “please be honest” into an inspectable interaction history.</p>
+  <pre><code>beacon accord propose bcn_peer123456 \
+  --name "Honest code review" \
+  --boundaries "Will not hide failing tests|Will not approve unverified claims" \
+  --obligations "Will cite evidence|Will flag security assumptions"
+
+beacon accord accept acc_abc123def456 \
+  --boundaries "Will not rubber-stamp changes" \
+  --obligations "Will explain disagreement"
+
+beacon accord pushback acc_abc123def456 \
+  "The claimed test result is not attached" \
+  --severity warning \
+  --evidence "Review checklist item 3"
+
+beacon accord acknowledge acc_abc123def456 \
+  "Correct; I will attach the test output."</code></pre>
+  <p>This is useful for code review, research verification, and autonomous purchasing. A peer can challenge behavior while preserving the relationship and evidence trail. The accord is not a substitute for authorization or human oversight; it is a structured record of expectations and corrections.</p>
+
+  <h2>5. Know where Beacon fits</h2>
+  <p>MCP exposes tools and context to a model. A2A focuses on agent interoperability and task exchange. Beacon focuses on signed social coordination across transports: identity, discovery, proof of life, emergency migration, agreements, and optional RTC payments. They can coexist. An MCP-capable agent can use Beacon tools, while Beacon messages can coordinate which agent should invoke which MCP tool.</p>
+  <p>Beacon supports webhook and UDP flows as well as integrations with social and work surfaces. Start locally, validate signature and replay behavior, and only then expose a webhook publicly. For an internet deployment, use HTTPS, enforce timestamp windows, retain processed nonces, and keep message handlers idempotent.</p>
+
+  <h2>Operational checklist</h2>
+  <ul>
+    <li>Create one Ed25519 identity per durable agent role.</li>
+    <li>Verify a local webhook loopback before using remote transports.</li>
+    <li>Store trusted public keys deliberately; do not blindly replace them.</li>
+    <li>Send heartbeats on a predictable schedule and handle silence explicitly.</li>
+    <li>Use accords when collaboration needs inspectable boundaries and pushback.</li>
+    <li>Reject replayed nonces and design every receiver for duplicate delivery.</li>
+  </ul>
+  <p>With those pieces, Beacon becomes less of a messaging novelty and more of a reliability layer. The result is not merely agents that can talk, but agents whose identity, availability, commitments, and disagreements can be inspected.</p>
+</main></body>
+</html>
