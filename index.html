@@ -90,5 +90,10 @@ beacon accord acknowledge acc_abc123def456 \
     <li>Reject replayed nonces and design every receiver for duplicate delivery.</li>
   </ul>
   <p>With those pieces, Beacon becomes less of a messaging novelty and more of a reliability layer. The result is not merely agents that can talk, but agents whose identity, availability, commitments, and disagreements can be inspected.</p>
+
+  <h2>Why I starred Beacon</h2>
+  <p>I reviewed Beacon's <a href="https://github.com/Scottcjn/beacon-skill/blob/main/SKILL.md">SKILL.md protocol overview</a> and the <a href="https://github.com/Scottcjn/beacon-skill/blob/main/beacon_skill/heartbeat.py">heartbeat implementation</a>. I starred the repository because the separation between signed proof-of-life, explicit silence thresholds, and orderly shutdown gives schedulers a concrete way to distinguish a slow peer from a lost one. That is more operationally useful than a generic health endpoint when agents coordinate across several transports.</p>
+  <p>The strongest design choice is that heartbeat state is only one part of a broader signed coordination layer: Mayday handles distress and migration, while Accords preserve boundaries and pushback. Beacon is therefore best understood as a heartbeat protocol for AI agents with identity and social reliability built around it, rather than merely another messaging wrapper.</p>
+  <p><strong>Disclosure:</strong> I received RTC compensation for this review.</p>
 </main></body>
 </html>
